@@ -30,10 +30,19 @@ export default class AzureMethods {
       currentSite.uniqueName = currentSite.siteName;
       if (currentSite.isSlot) { currentSite.uniqueName = `${currentSite.uniqueName}-${currentSite.slotName}`; }
 
+      currentSite.azureEnvironment = currentSite.azureEnvironment || 'Azure'
+      if (currentSite.azureEnvironment==='Azure'){
+        currentSite.kuduEndpointSuffix = '.scm.azurewebsites.net'
+      } else if (currentSite.azureEnvironment==='AzureChina'){
+        currentSite.kuduEndpointSuffix = '.scm.chinacloudsites.cn'
+      } else {
+        throw new Error(`Unknown kuduEndpointSuffix for ${currentSite.azureEnvironment}`)
+      }
+
       // Configure Kudu API connection
       winston.debug(`${currentSite.uniqueName}: configure kudu api`);
       currentSite.kuduClient = axios.create({
-        baseURL: `https://${currentSite.uniqueName}.scm.azurewebsites.net`,
+        baseURL: `https://${currentSite.uniqueName}${currentSite.kuduEndpointSuffix}`,
         auth: currentSite.deploymentCreds,
       });
 
@@ -75,6 +84,7 @@ export default class AzureMethods {
     await AzureMethods.forEachSite(this.sites, async (site) => {
       const currentSite = site;
       const { servicePrincipal, tenantId, subscriptionId } = currentSite;
+      const environment = msRest.AzureEnvironment[currentSite.azureEnvironment]
       let credentials;
 
       /* Retrieve credential from MS API, uses service principal when available
@@ -85,12 +95,12 @@ export default class AzureMethods {
         credentials = await msRest.loginWithServicePrincipalSecret(appId, secret, tenantId);
       } else {
         winston.info(`${currentSite.uniqueName}: Authenticating with interactive login...`);
-        credentials = await msRest.interactiveLogin({ domain: tenantId });
+        credentials = await msRest.interactiveLogin({ domain: tenantId, environment });
       }
 
       // Initialise Azure SDK using MS credential
       winston.debug(`${currentSite.uniqueName}: completed Azure authentication`);
-      currentSite.azureSdk = new AzureSdk(credentials, subscriptionId).webApps;
+      currentSite.azureSdk = new AzureSdk(credentials, subscriptionId, environment.resourceManagerEndpointUrl).webApps;
     });
   }
 
@@ -217,7 +227,7 @@ export default class AzureMethods {
            manually using Kudu interface */
           winston.debug(error.message);
           const logId = progress.data.id;
-          const logUrls = sites.map(logSite => `${logSite.uniqueName}: https://${logSite.uniqueName}.scm.azurewebsites.net/api/vfs/site/deployments/${logId}/log.log`);
+          const logUrls = sites.map(logSite => `${logSite.uniqueName}: https://${logSite.uniqueName}${logSite.kuduEndpointSuffix}/api/vfs/site/deployments/${logId}/log.log`);
           throw new Error(`Could not poll server status.
           This is most likely due to an issue with your internet connection and does NOT indicate
           a deployment failure. You may choose to try again, or continue tracking the active deploy
