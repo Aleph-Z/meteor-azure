@@ -74,13 +74,23 @@ function () {
 
       if (currentSite.isSlot) {
         currentSite.uniqueName = `${currentSite.uniqueName}-${currentSite.slotName}`;
+      }
+
+      currentSite.azureEnvironment = currentSite.azureEnvironment || 'Azure';
+
+      if (currentSite.azureEnvironment === 'Azure') {
+        currentSite.kuduEndpointSuffix = '.scm.azurewebsites.net';
+      } else if (currentSite.azureEnvironment === 'AzureChina') {
+        currentSite.kuduEndpointSuffix = '.scm.chinacloudsites.cn';
+      } else {
+        throw new Error(`Unknown kuduEndpointSuffix for ${currentSite.azureEnvironment}`);
       } // Configure Kudu API connection
 
 
       _winston.default.debug(`${currentSite.uniqueName}: configure kudu api`);
 
       currentSite.kuduClient = _axios.default.create({
-        baseURL: `https://${currentSite.uniqueName}.scm.azurewebsites.net`,
+        baseURL: `https://${currentSite.uniqueName}${currentSite.kuduEndpointSuffix}`,
         auth: currentSite.deploymentCreds
       });
       return currentSite;
@@ -180,16 +190,17 @@ function () {
                   var _ref2 = _asyncToGenerator(
                   /*#__PURE__*/
                   regeneratorRuntime.mark(function _callee3(site) {
-                    var currentSite, servicePrincipal, tenantId, subscriptionId, credentials, appId, secret;
+                    var currentSite, servicePrincipal, tenantId, subscriptionId, environment, credentials, appId, secret;
                     return regeneratorRuntime.wrap(function _callee3$(_context3) {
                       while (1) {
                         switch (_context3.prev = _context3.next) {
                           case 0:
                             currentSite = site;
                             servicePrincipal = currentSite.servicePrincipal, tenantId = currentSite.tenantId, subscriptionId = currentSite.subscriptionId;
+                            environment = _msRestAzure.default.AzureEnvironment[currentSite.azureEnvironment];
 
                             if (!(servicePrincipal !== undefined)) {
-                              _context3.next = 10;
+                              _context3.next = 11;
                               break;
                             }
 
@@ -197,32 +208,33 @@ function () {
 
                             _winston.default.info(`${currentSite.uniqueName}: Authenticating with service principal`);
 
-                            _context3.next = 7;
+                            _context3.next = 8;
                             return _msRestAzure.default.loginWithServicePrincipalSecret(appId, secret, tenantId);
 
-                          case 7:
+                          case 8:
                             credentials = _context3.sent;
-                            _context3.next = 14;
+                            _context3.next = 15;
                             break;
 
-                          case 10:
+                          case 11:
                             _winston.default.info(`${currentSite.uniqueName}: Authenticating with interactive login...`);
 
-                            _context3.next = 13;
+                            _context3.next = 14;
                             return _msRestAzure.default.interactiveLogin({
-                              domain: tenantId
+                              domain: tenantId,
+                              environment
                             });
 
-                          case 13:
+                          case 14:
                             credentials = _context3.sent;
 
-                          case 14:
+                          case 15:
                             // Initialise Azure SDK using MS credential
                             _winston.default.debug(`${currentSite.uniqueName}: completed Azure authentication`);
 
-                            currentSite.azureSdk = new _azureArmWebsite.default(credentials, subscriptionId).webApps;
+                            currentSite.azureSdk = new _azureArmWebsite.default(credentials, subscriptionId, environment.resourceManagerEndpointUrl).webApps;
 
-                          case 16:
+                          case 17:
                           case "end":
                             return _context3.stop();
                         }
@@ -534,7 +546,7 @@ function () {
 
                               var logId = progress.data.id;
                               var logUrls = sites.map(function (logSite) {
-                                return `${logSite.uniqueName}: https://${logSite.uniqueName}.scm.azurewebsites.net/api/vfs/site/deployments/${logId}/log.log`;
+                                return `${logSite.uniqueName}: https://${logSite.uniqueName}${logSite.kuduEndpointSuffix}/api/vfs/site/deployments/${logId}/log.log`;
                               });
                               throw new Error(`Could not poll server status.
           This is most likely due to an issue with your internet connection and does NOT indicate

@@ -93,6 +93,7 @@ function validateSettings(filePath) {
 
 
   var siteConfig = _joi.default.object({
+    azureEnvironment: _joi.default.string(),
     siteName: _joi.default.string(),
     resourceGroup: _joi.default.string(),
     tenantId: _joi.default.string(),
