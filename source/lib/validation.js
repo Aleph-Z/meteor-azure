@@ -69,6 +69,7 @@ export function validateSettings(filePath) {
 
   // Define schema
   const siteConfig = Joi.object({
+    azureEnvironment: Joi.string(),
     siteName: Joi.string(),
     resourceGroup: Joi.string(),
     tenantId: Joi.string(),
