@@ -54,7 +54,7 @@ export function validateMeteor(architecture) {
   }
 }
 
-export function validateSettings(filePath) {
+export function validateSettings(filePath, architecture) {
   let settingsFile;
 
   winston.info(`Validating settings file (${filePath})`);
@@ -89,6 +89,7 @@ export function validateSettings(filePath) {
         // Reject duplicated site
         .unique((a, b) => (a.siteName === b.siteName) && (a.slotName === b.slotName)),
     ]),
+    'not-meteor': Joi.boolean().optional(),
   }).unknown(true); // allow unknown keys (at the top level) for Meteor settings
 
   // Ensure settings data follows schema
@@ -109,6 +110,11 @@ export function validateSettings(filePath) {
       throw new Error(`Settings file (${filePath}): ${lastError.message} in ${pathToParent}`);
     }
   });
+
+  // Validate Meteor version/packages
+  if (!settingsFile['not-meteor']){
+    validateMeteor(architecture);
+  }
 
   return settingsFile;
 }

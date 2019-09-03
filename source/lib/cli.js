@@ -8,7 +8,7 @@ import winston from 'winston';
 import pkg from '../../package.json';
 import compileBundle from './bundle';
 import AzureMethods from './azure';
-import { validateSettings, validateMeteor } from './validation';
+import { validateSettings } from './validation';
 
 // Notify user of available updates
 updateNotifier({ pkg }).notify();
@@ -49,12 +49,9 @@ export default async function startup() {
     }
     winston.info(`Targetting ${program.architecture}-bit Node architecture`);
 
-    // Validate Meteor version/packages
-    validateMeteor(program.architecture);
-
     // Validate settings file(s)
     const settingsFilePaths = program.settings.split(',');
-    const settingsFiles = settingsFilePaths.map(path => validateSettings(path));
+    const settingsFiles = settingsFilePaths.map(path => validateSettings(path, program.architecture));
 
     // Configure Azure settings
     const azureMethodsInstances = [];
